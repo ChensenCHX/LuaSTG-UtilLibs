@@ -38,7 +38,7 @@ function lib.SamplingCurve(name, curinfo, ctrlinfo)
     end
 end
 
----对一个已采样曲线取等距插值点
+---对一个已采样曲线取等距点
 ---如果采样精度很糟糕,取点也会很糟糕!!!
 ---只是一般通过简单逼近实现
 ---@param name string 曲线名称
