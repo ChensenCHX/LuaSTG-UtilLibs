@@ -104,6 +104,7 @@ end
 ---最终插值返回的表形如{{x1, y1}, {x2, y2}, ...}  
 ---通过闭包形式保存一些信息,实际使用应如下操作   
 ---xxx = lib.Equidistant(yyy),向插值函数传递xxx  
+---注意!!!上述操作创建的迭代函数用完后不会自动释放,需手动赋nil!!!
 function lib.Equidistant(length)
     local tmp = {dist = 0}
     return function(x, y, result)
