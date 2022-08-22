@@ -55,8 +55,8 @@ end
 ---小贴士:你传入的函数可以访问到result哦(通过访问传入的result)(仅访问,并不能修改值!!)
 ---@param name string 曲线名称
 ---@param Infolist table 插值所需信息,按{var,var,...,var}排序,值均为字符串
----@param Ctrllist table 控制信息,按{vararg(可选) = {'x', 'y' ...}, stepst(可选) = number, steped(可选) = number}传递
 ---@param Ifunc function 插值函数,参数列表按(var,var,...var,result)排序,顺序应同Infolist顺序,返回值应为目标值或false/nil
+---@param Ctrllist table 控制信息,按{vararg(可选) = {'x', 'y' ...}, stepst(可选) = number, steped(可选) = number}传递,vararg的内容物将表现为result的键值,且顺序相关
 ---@return result table 用于储存插值结果的表(以数组形式排序),若Ifunc返回值为false/nil则等待下一返回值
 function lib.Interpolation(name, Infolist, Ifunc, Ctrllist)
     local result = {}
