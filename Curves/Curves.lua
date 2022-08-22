@@ -12,7 +12,6 @@ local function CheckCurve(name, curinfo, ctrlinfo)
         Print('[Curve Warn] ', name, ' has been used, old data will be delete!')
     else
         CurveTable[name] = {}
-        if #curinfo < 1 then error('Parametric equation must have at least 1 equation!', 2) end
         for k, _ in pairs(curinfo) do
             CurveTable[name][k] = {}
         end
@@ -40,7 +39,7 @@ function lib.SamplingCurve(name, curinfo, ctrlinfo)
     sZoneLength = sZoneLength - sZoneLength%ctrlinfo.sLength
     for _ = ctrlinfo.sZoneLow, sZoneLength, ctrlinfo.sLength do
         for k, v in pairs(curinfo) do
-            CurveTable[name][k] = curinfo[k](_)
+            table.insert(CurveTable[name][k], curinfo[k](_))
         end
     end
     CurveTable[name].__sinfo = ctrlinfo
@@ -56,22 +55,33 @@ end
 ---小贴士:你传入的函数可以访问到result哦(通过访问传入的result)(仅访问,并不能修改值!!)
 ---@param name string 曲线名称
 ---@param Infolist table 插值所需信息,按{var,var,...,var}排序,值均为字符串
----@param Ctrllist table 控制信息,按{}
+---@param Ctrllist table 控制信息,按{vararg(可选) = {'x', 'y' ...}, stepst(可选) = number, steped(可选) = number}传递
 ---@param Ifunc function 插值函数,参数列表按(var,var,...var,result)排序,顺序应同Infolist顺序,返回值应为目标值或false/nil
 ---@return result table 用于储存插值结果的表(以数组形式排序),若Ifunc返回值为false/nil则等待下一返回值
-function lib.Interpolation(name, Infolist, Ifunc)
+function lib.Interpolation(name, Infolist, Ifunc, Ctrllist)
     local result = {}
     local tmplist = {}
     local length = #Infolist
     local tmp
-    for _ = 1, #CurveTable[name][Infolist[1]] do
+    if Ctrllist.vararg then
+        for _ = 1, #Ctrllist.vararg do
+            result[Ctrllist.vararg[_]] = {}
+        end
+    end
+    for _ = Ctrllist.stepst or 1, Ctrllist.steped or CurveTable[name].__sinfo.sSteps do
         for i = 1, length do
             tmplist[i] = CurveTable[name][Infolist[i]][_]
         end
         table.insert(tmplist, result)
         tmp = Ifunc(unpack(tmplist))
         if tmp then
-            table.insert(result, tmp)
+            if type(tmp) == 'table' then
+                for i = 1, #Ctrllist.vararg do
+                    table.insert(result[Ctrllist.vararg[i]], tmp[i])
+                end
+            else
+                table.insert(result, tmp)
+            end
         end
     end
     return result
