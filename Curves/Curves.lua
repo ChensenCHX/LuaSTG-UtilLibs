@@ -56,7 +56,8 @@ end
 ---@param name string 曲线名称
 ---@param Infolist table 插值所需信息,按{var,var,...,var}排序,值均为字符串
 ---@param Ifunc function 插值函数,参数列表按(var,var,...var,result)排序,顺序应同Infolist顺序,返回值应为目标值或false/nil
----@param Ctrllist table 控制信息,按{vararg(可选) = {'x', 'y' ...}, stepst(可选) = number, steped(可选) = number}传递,vararg的内容物将表现为result的键值,且顺序相关
+---@param Ctrllist table 控制信息,按{vararg(多返回值必选) = {'x', 'y' ...}, stepst(可选) = number, steped(可选) = number}传递
+---@param Ctrllist table vararg的内容物将表现为result的键值,且顺序相关
 ---@return result table 用于储存插值结果的表(以数组形式排序),若Ifunc返回值为false/nil则等待下一返回值
 function lib.Interpolation(name, Infolist, Ifunc, Ctrllist)
     local result = {}
@@ -130,7 +131,7 @@ end
 
 ---提供一些写好的插值函数:
 ---等距取点  
----最终插值返回的表形如{{x1, y1}, {x2, y2}, ...}  
+---最终插值返回的表形如{x = {x1, x2 ...}, y = {y1, y2 ...}}  
 ---通过闭包形式保存一些信息,实际使用应如下操作   
 ---xxx = lib.Equidistant(yyy),向插值函数传递xxx  
 ---注意!!!上述操作创建的迭代函数用完后不会自动释放,需手动赋nil!!!
@@ -154,4 +155,4 @@ function lib.Equidistant(length)
     end
 end
 
-    
+---如果你要写自己的插值函数,多返回值请用table传递,且table中值顺序将影响赋给result对应键值的顺序
