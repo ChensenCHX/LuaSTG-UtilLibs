@@ -20,8 +20,8 @@ local function CheckCurve(name, curinfo, ctrlinfo)
     if ctrlinfo.sZoneLow >= ctrlinfo.sZoneHigh then
         error('Invalid sampling zone!', 2)
     end
-    if ctrlinfo.sLength <= 0 or ctrlinfo.sLength <= ctrlinfo.sZoneHigh - ctrlinfo.sZoneLow then
-        error('Invalid sampling length, sLength<=0 or sLength<sZone!', 2)
+    if ctrlinfo.sLength <= 0 or ctrlinfo.sLength >= ctrlinfo.sZoneHigh - ctrlinfo.sZoneLow then
+        error('Invalid sampling length, sLength<=0 or sLength>sZone!', 2)
     end
 end
 
@@ -29,7 +29,8 @@ end
 ---@param name string 该曲线名称
 ---@param curinfo table 包含曲线信息的表
 ---@param ctrlinfo table 包含采样参数的表
----curinfo表形如{x = function(t) end, y = function(t) end}, 函数的返回值应当为传入的参数的对应值
+---curinfo表形如{x = function(t) end, y = function(t) end}, 函数的返回值应当为传入的参数的对应值  
+---__sinfo为保留字,请勿使用  
 ---注意,上述x,y等仅作为示例,实际上参方的输出可以任意多维  
 ---ctrlinfo表形如{sLength = 采样参数变化步长, sZoneLow = 采样区域下界, sZoneHigh = 采样区域上界}  
 ---注意,如果采样区域无法被步长整除,多余的部分将被舍弃!  
@@ -37,11 +38,14 @@ function lib.SamplingCurve(name, curinfo, ctrlinfo)
     CheckCurve(name, curinfo, ctrlinfo)
     local sZoneLength = ctrlinfo.sZoneHigh - ctrlinfo.sZoneLow
     sZoneLength = sZoneLength - sZoneLength%ctrlinfo.sLength
-    for _ = ctrlinfo.sZoneLow, sZoneLength do
+    for _ = ctrlinfo.sZoneLow, sZoneLength, ctrlinfo.sLength do
         for k, v in pairs(curinfo) do
             CurveTable[name][k] = curinfo[k](_)
         end
     end
+    CurveTable[name].__sinfo = ctrlinfo
+    CurveTable[name].__sinfo.sSteps = sZoneLength/ctrlinfo.sLength
+    CurveTable[name].__sinfo.sZoneHigh = ctrlinfo.sZoneHigh - sZoneLength%ctrlinfo.sLength
 end
 
 ---对一个已采样曲线进行插值  
@@ -52,6 +56,7 @@ end
 ---小贴士:你传入的函数可以访问到result哦(通过访问传入的result)(仅访问,并不能修改值!!)
 ---@param name string 曲线名称
 ---@param Infolist table 插值所需信息,按{var,var,...,var}排序,值均为字符串
+---@param Ctrllist table 控制信息,按{}
 ---@param Ifunc function 插值函数,参数列表按(var,var,...var,result)排序,顺序应同Infolist顺序,返回值应为目标值或false/nil
 ---@return result table 用于储存插值结果的表(以数组形式排序),若Ifunc返回值为false/nil则等待下一返回值
 function lib.Interpolation(name, Infolist, Ifunc)
@@ -86,11 +91,25 @@ end
 ---@param name string 曲线名称
 ---@return table 用于承装名称的表
 function lib.GetCurveParaName(name)
+    if not CurveTable[name] then
+        error'Unknown Curve!'
+    end
     local result = {}
     for k, v in pairs(CurveTable[name]) do
         table.insert(result, k)
     end
     return result
+end
+
+---返回name对应曲线的采样信息  
+---返回表键值sLength为采样参数变化步长, sZoneLow为采样区域下界, sZoneHigh为采样区域上界, sSteps为采样步数
+---@param name string 曲线名称
+---@return table 用于承装采样信息的表
+function lib.GetCurveSamplingInfo(name)
+    if not CurveTable[name] then
+        error'Unknown Curve!'
+    end
+    return CurveTable[name].__sinfo
 end
 
 ---删除一个已采样曲线的数据
