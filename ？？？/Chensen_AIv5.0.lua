@@ -50,7 +50,7 @@ local map = setmetatable({}, mt_mapO)
 
 
 ---重置AI判定热力图
-function AI.FlushMap()
+local function FlushMap()
     map = setmetatable({}, mt_mapO)
 end
 
@@ -192,7 +192,7 @@ local function SpreadMap()
 end
 
 function AI.RefreshMap()
-    AI.FlushMap()
+    FlushMap()
     ItrateGroups{GROUP_ENEMY_BULLET, GROUP_ENEMY, GROUP_INDES, GROUP_NONTJT}
     SpreadMap()
 
