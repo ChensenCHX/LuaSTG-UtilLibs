@@ -108,6 +108,12 @@ local function spint(num)
     end
 end
 
+---处理椭圆判定弹幕
+---@param a number a轴
+---@param b number b轴
+---@param rot number 旋转角度
+---@param blockx number x坐标(直接传入,内部进行转换)
+---@param blocky number y坐标(直接传入,内部进行转换)
 local function DoEllipticMapping(a, b, rot, blockx, blocky)
     local state
     blockx, blocky = math.floor(blockx/map_settings.granularity), math.floor(blocky/map_settings.granularity)
@@ -133,4 +139,61 @@ local function DoEllipticMapping(a, b, rot, blockx, blocky)
             end
         end
     end
+end
+
+---处理矩形判定弹幕
+---@param a number a轴
+---@param b number b轴
+---@param rot number 旋转角度
+---@param blockx number x坐标(直接传入,内部进行转换)
+---@param blocky number y坐标(直接传入,内部进行转换)
+local function DoRectMapping(a, b, rot, blockx, blocky)
+    
+end
+
+local function ItrateGroups(groups)
+    for k, v in ipairs(groups) do
+        for _, obj in ObjList(v) do
+            if not(obj.node or obj.hide) and obj.colli and Dist(obj, player) <= map_settings.vision then
+                if obj.rect then
+                    DoRectMapping(obj.a, obj.b, obj.rot, obj.x, obj.y)
+                else
+                    DoEllipticMapping(obj.a, obj.b, obj.rot, obj.x, obj.y)
+                end
+            end
+        end
+    end
+end
+
+local function spread(x, y, t, num)
+    num = num + 1
+    t[x+1][y+1], t[x-1][y+1] = map_settings.default * map_settings.divrate^num
+    t[x+1][y-1], t[x-1][y-1] = map_settings.default * map_settings.divrate^num
+    if num < map_settings.spreadradius then
+        spread(x+1, y+1, t, num)
+        spread(x+1, y-1, t, num)
+        spread(x-1, y+1, t, num)
+        spread(x-1, y-1, t, num)
+    end
+end
+
+local function SpreadMap()
+    local length = spint(map_settings.vision/map_settings.granularity)
+    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map.granularity)
+    for i = x-length, x+length do
+        for j = y-length, y+length do
+            if map[i][j] >= inf then
+                if map[i+1][j+1]<inf and map[i+1][j-1]<inf and map[i-1][j+1]<inf and map[i-1][j-1]<inf then
+                    spread(i, j, map, 0)
+                end
+            end
+        end
+    end
+end
+
+function AI.RefreshMap()
+    AI.FlushMap()
+    ItrateGroups{GROUP_ENEMY_BULLET, GROUP_ENEMY, GROUP_INDES, GROUP_NONTJT}
+    SpreadMap()
+
 end
