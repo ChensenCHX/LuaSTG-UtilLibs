@@ -45,7 +45,7 @@ local mt_mapO = {
 local map = setmetatable({}, mt_mapO)
 --[[
     map表被设计为利用元表自动赋值需要的部分 其余部分直接摆烂不初始化 能省点 大概(
-    形如map[x][y], x, y指代以玩家所在block为[0][0]的偏移block数
+    形如map[x][y], x, y指代以世界坐标(0,0)为block[0][0]左下角的偏移block数
 --]]
 
 
@@ -88,4 +88,49 @@ end
 AI.SetMapParameter(2, 200, -200, -180, 180, 64)
 AI.SetMapProperty(3, 0.05, 5)
 
+---取椭圆长轴及焦点方向 返回值0,1,2代表前长轴,后长轴,正圆
+local function maxE(a, b)
+    local state = 0
+    if a < b then
+        a, b = b, a
+        state = 1
+    elseif a == b then
+        state = 2
+    end
+    return a, b, state
+end
 
+local function spint(num)
+    if num >= 0 then
+        return math.floor(num)
+    else
+        return math.celi(num)
+    end
+end
+
+local function DoEllipticMapping(a, b, rot, blockx, blocky)
+    local state
+    blockx, blocky = math.floor(blockx/map_settings.granularity), math.floor(blocky/map_settings.granularity)
+    a, b = a/map_settings.granularity, b/map_settings.granularity
+    a, b, state = maxE(a, b)
+    local c2 = a^2 - b^2
+    local c = math.sqrt(c2)
+    local int_a = spint(a)
+    if state == 2 then
+        local r2 = a^2
+        for i = blockx - int_a, blockx + int_a do
+            for j = blocky - int_a, blocky + int_a do
+                if r2 >= i^2 + j^2 then map[i][j] = inf end 
+            end
+        end
+    else
+        if state == 1 then rot = rot + 90 end
+        local c_x1, c_y1 = c*cos(rot), c*sin(rot)
+        local c_x2, c_y2 = -c_x1, -c_y1
+        for i = blockx - int_a, blockx + int_a do
+            for j = blocky - int_a, blocky + int_a do
+                if Dist(c_x1+blockx, c_y1+blocky, i, j) + Dist(c_x2+blockx, c_y2+blocky, i, j) <= 2*a then map[i][j] = inf end
+            end
+        end
+    end
+end
