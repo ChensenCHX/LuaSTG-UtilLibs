@@ -184,7 +184,7 @@ local function DoRectMapping(a, b, rot, blockx, blocky)
             flag = true
             for k = 1, 4 do
                 x1, y1 = posxt[k+1]-posxt[k], posyt[k+1]-posyt[k]
-                x2, y2 = blockx-posxt[k], blocky-posyt[k]
+                x2, y2 = i-blockx - posxt[k], j-blocky - posyt[k]
                 signlist[k] = sign(x1*y2 - x2*y1)
             end
             for k = 2, 4 do
