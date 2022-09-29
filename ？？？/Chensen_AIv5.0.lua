@@ -88,8 +88,9 @@ end
 AI.SetMapParameter(2, 200, -200, -180, 180, 64)
 AI.SetMapProperty(3, 0.05, 5)
 
----取椭圆长轴及焦点方向 返回值0,1,2代表前长轴,后长轴,正圆
-local function maxE(a, b)
+---取椭圆长轴及焦点方向 返回值0,1,2代表前长轴,后长轴,正圆  
+---取矩形长轴 返回值意义类似椭圆模式
+local function maxG(a, b)
     local state = 0
     if a < b then
         a, b = b, a
@@ -118,7 +119,7 @@ local function DoEllipticMapping(a, b, rot, blockx, blocky)
     local state
     blockx, blocky = math.floor(blockx/map_settings.granularity), math.floor(blocky/map_settings.granularity)
     a, b = a/map_settings.granularity, b/map_settings.granularity
-    a, b, state = maxE(a, b)
+    a, b, state = maxG(a, b)
     local c2 = a^2 - b^2
     local c = math.sqrt(c2)
     local int_a = spint(a)
@@ -141,6 +142,10 @@ local function DoEllipticMapping(a, b, rot, blockx, blocky)
     end
 end
 
+local function sign(num)
+    if num > 0 then return 1 elseif num == 0 then return 0 else return -1 end
+end
+
 ---处理矩形判定弹幕
 ---@param a number a轴
 ---@param b number b轴
@@ -148,7 +153,49 @@ end
 ---@param blockx number x坐标(直接传入,内部进行转换)
 ---@param blocky number y坐标(直接传入,内部进行转换)
 local function DoRectMapping(a, b, rot, blockx, blocky)
-    
+    local state, xlength, ylength
+    blockx, blocky = math.floor(blockx/map_settings.granularity), math.floor(blocky/map_settings.granularity)
+    a, b = a/map_settings.granularity, b/map_settings.granularity
+    a, b, state = maxG(a, b)
+    if state == 1 then rot = (rot + 90)%180 end
+    local drot, sqrtl = atan2(b, a), math.sqrt(a^2 + b^2)
+    local posxt, posyt = {}, {}
+    local x1, x2, y1, y2
+    local signlist, flag = {}, true
+    -- 这里两表表坐标,key按顺时针增大 此处不使用函数处理是为了节省性能
+    -- cnm 可读性地狱 希望别出bug 求你了 别出
+    if rot > 90 then
+        posxt[1], posyt[1] = cos(180-rot+drot)*sqrtl, sin(180-rot+drot)*sqrtl
+        posxt[4], posyt[4] = cos(rot+drot-180)*sqrtl, sin(rot+drot-180)*sqrtl
+        posxt[3], posyt[3] = -posxt[1], -posyt[1]
+        posxt[2], posyt[2] = -posxt[4], -posyt[4]
+        posxt[5], posyt[5] = posxt[1], posyt[1]
+        xlength, ylength = spint(posxt[4]), spint(posyt[1]) 
+    else
+        posxt[1], posyt[1] = cos(rot+drot)*sqrtl, sin(rot+drot)*sqrtl
+        posxt[2], posyt[2] = cos(rot-drot)*sqrtl, sin(rot-drot)*sqrtl
+        posxt[3], posyt[3] = -posxt[1], -posyt[1]
+        posxt[4], posyt[4] = -posxt[2], -posyt[2]
+        posxt[5], posyt[5] = posxt[1], posyt[1]
+        xlength, ylength = spint(posxt[2]), spint(posyt[1])
+    end
+    for i = blockx - xlength, blockx + xlength do
+        for j = blocky - ylength, blocky + ylength do
+            flag = true
+            for k = 1, 4 do
+                x1, y1 = posxt[k+1]-posxt[k], posyt[k+1]-posyt[k]
+                x2, y2 = blockx-posxt[k], blocky-posyt[k]
+                signlist[k] = sign(x1*y2 - x2*y1)
+            end
+            for k = 2, 4 do
+                if signlist[k] ~= signlist[k-1] then
+                    flag = false
+                    break
+                end
+            end
+            if flag then map[i][j] = inf end
+        end
+    end
 end
 
 local function ItrateGroups(groups)
@@ -195,5 +242,5 @@ function AI.RefreshMap()
     FlushMap()
     ItrateGroups{GROUP_ENEMY_BULLET, GROUP_ENEMY, GROUP_INDES, GROUP_NONTJT}
     SpreadMap()
-
+    
 end
