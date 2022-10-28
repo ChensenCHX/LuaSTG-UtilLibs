@@ -233,9 +233,9 @@ local function SpreadMap()
     end
 end
 
-function AI.RefreshMap()
+function AI.RefreshMap(groups)
     map = setmetatable({}, mt_mapO)     -- 这里是重置map地图表
-    ItrateGroups{GROUP_ENEMY_BULLET, GROUP_ENEMY, GROUP_INDES, GROUP_NONTJT}
+    ItrateGroups(groups or {GROUP_ENEMY_BULLET, GROUP_ENEMY, GROUP_INDES, GROUP_NONTJT})
     SpreadMap()
 end
 
@@ -286,4 +286,48 @@ function AI.PreAlanystMap(pow)
 end
 
 -------地图段结束-------
+
 -------向量段-------
+function AI.PreAlanystVector()
+end
+
+function AI.trytry(tag)
+    local p = player
+    p.__slow_flag, p.__up_flag, p.__down_flag, p.__left_flag, p.__right_flag = false, false, false, false, false
+    if tag > 8 then
+        tag = tag - 9
+        p.__slow_flag = true
+    end
+
+    if tag == 4 then return end
+    if tag == 0 then
+        p.__left_flag, p.__up_flag = true, true
+    elseif tag == 1 then
+        p.__up_flag = true
+    elseif tag == 2 then
+        p.__right_flag, p.__up_flag = true, true
+    elseif tag == 3 then
+        p.__left_flag = true
+    elseif tag == 5 then
+        p.__right_flag = true
+    elseif tag == 6 then
+        p.__left_flag, p.__down_flag = true, true
+    elseif tag == 7 then
+        p.__down_flag = true
+    elseif tag == 8 then
+        p.__right_flag, p.__down_flag = true, true
+    end
+end
+
+function AI.Main()
+    if KeyIsDown"special" then
+        AI.RefreshMap()
+        local powlst = AI.PreAlanystMap(0.95)
+        AI.PreAlanystVector()
+        local tag, tmppow = 0, inf
+        for i = 0, 17 do
+            if powlst[i] < tmppow then tmppow = powlst[i] tag = i end
+        end
+        AI.trytry(tag)
+    end
+end
