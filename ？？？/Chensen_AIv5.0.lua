@@ -16,6 +16,7 @@ Chensen_AI = AI
 -------地图段-------
 local inf = 1e20
 local map_settings = {}
+local map_info = {}
 
 local mt_mapI = {
     __index =
@@ -47,12 +48,6 @@ local map = setmetatable({}, mt_mapO)
     map表被设计为利用元表自动赋值需要的部分 其余部分直接摆烂不初始化 能省点 大概(
     形如map[x][y], x, y指代以世界坐标(0,0)为block[0][0]左下角的偏移block数
 --]]
-
-
----重置AI判定热力图
-local function FlushMap()
-    map = setmetatable({}, mt_mapO)
-end
 
 ---获取AI热力图生成参数
 function AI.GetMapParameter()
@@ -239,8 +234,56 @@ local function SpreadMap()
 end
 
 function AI.RefreshMap()
-    FlushMap()
+    map = setmetatable({}, mt_mapO)     -- 这里是重置map地图表
     ItrateGroups{GROUP_ENEMY_BULLET, GROUP_ENEMY, GROUP_INDES, GROUP_NONTJT}
     SpreadMap()
-    
 end
+
+---分析地图并给出目标方向&&速度的权重值  
+---返回值%8后代表的方向排布格式为  
+---00 01 02    09 10 11  
+---03 04 05    12 13 14  
+---06 07 08    15 16 17  
+---@param pow number 偏移权重底数
+---@return table 对应数字key 0~8低速区 9~17高速区 04与13不做移动; value为权重 权重最大者为目标方向
+function AI.PreAlanystMap(pow)
+    local length = spint(map_settings.vision/map_settings.granularity)
+    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map.granularity)
+    local hs, ls = math.floor(player.hspeed/map_settings.granularity), math.floor(player.lspeed/map_settings.granularity)
+    if 2*hs > length then hs=0.5*length end
+    if 2*ls > length then ls=0.5*length end
+    local anstable = {}
+    for i = 0, 17 do anstable[i] = 0 end
+    
+    local iter = 0
+    for xx = -1, 1 do
+        for yy = 1, -1, -1 do
+
+            local lstiter = -4
+            for hx = x + (xx-1)*hs, x + (xx+1)*hs do
+                local lstiter2 = -4
+                for hy = y + (yy+1)*hs, y + (yy-1)*hs do
+                    anstable[iter] = anstable[iter] + map[hx][hy] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
+                    lstiter2 = lstiter2 + 1
+                end
+                lstiter = lstiter + 1
+            end
+            lstiter = -4
+            for lx = x + (xx-1)*ls, x + (xx+1)*ls do
+                local lstiter2 = -4
+                for ly = y + (yy+1)*ls, y + (yy-1)*ls do
+                    anstable[iter+9] = anstable[iter+9] + map[lx][ly] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
+                    lstiter2 = lstiter2 + 1
+                end
+                lstiter = lstiter + 1
+            end
+
+            iter = iter + 1
+        end
+    end
+
+    return anstable
+end
+
+-------地图段结束-------
+-------向量段-------
