@@ -15,7 +15,9 @@ Chensen_AI = AI
 
 -------地图段-------
 
-local inf = 1e15
+local inf = 1e12
+local inf_bound = 1e15
+
 local map_settings = {}
 local map_info = {}
 
@@ -25,12 +27,12 @@ local mt_mapI = {
         if k*map_settings.granularity >= map_settings.down and k*map_settings.granularity <= map_settings.up then
             rawset(t, k, 0)
         else
-            rawset(t, k, inf)
+            rawset(t, k, inf_bound)
         end
         if t.x*map_settings.granularity >= map_settings.left and t.x*map_settings.granularity <= map_settings.right then
             rawset(t, k, 0)
         else
-            rawset(t, k, inf)
+            rawset(t, k, inf_bound)
         end
         return 0
     end
@@ -211,13 +213,14 @@ end
 ---递推扩散函数
 local function spread(x, y, t, num)
     num = num + 1
-    t[x+1][y+1], t[x-1][y+1] = map_settings.default * map_settings.divrate^num
-    t[x+1][y-1], t[x-1][y-1] = map_settings.default * map_settings.divrate^num
+    local addvalue = map_settings.default * map_settings.divrate^num
+    t[x+1][y], t[x-1][y] = t[x+1][y] + addvalue, t[x-1][y] + addvalue
+    t[x][y+1], t[x][y-1] = t[x][y+1] + addvalue, t[x][y-1] + addvalue
     if num < map_settings.spreadradius then
-        spread(x+1, y+1, t, num)
-        spread(x+1, y-1, t, num)
-        spread(x-1, y+1, t, num)
-        spread(x-1, y-1, t, num)
+        spread(x+1, y, t, num)
+        spread(x-1, y, t, num)
+        spread(x, y+1, t, num)
+        spread(x, y-1, t, num)
     end
 end
 
@@ -228,7 +231,7 @@ local function SpreadMap()
     for i = x-length, x+length do
         for j = y-length, y+length do
             if map[i][j] >= inf then
-                if map[i+1][j+1]<inf and map[i+1][j-1]<inf and map[i-1][j+1]<inf and map[i-1][j-1]<inf then
+                if map[i+1][j]<inf or map[i-1][j]<inf or map[i][j+1]<inf or map[i][j-1]<inf then
                     spread(i, j, map, 0)
                 end
             end
@@ -356,6 +359,7 @@ function AI.Main()
         local tag, tmppow, tmpflag = 0, inf, true
         
         logMap()
+
         --[[
         for i = 0, 17 do
             if powlst[i] < tmppow then tmppow = powlst[i] tag = i end
@@ -368,4 +372,4 @@ end
 
 --初始化一些默认配置
 AI.SetMapParameter(1, 200, -200, -180, 180, 16)
-AI.SetMapProperty(3, 0.05, 5)
+AI.SetMapProperty(3, 0.85, 5)
