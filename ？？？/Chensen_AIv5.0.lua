@@ -94,6 +94,8 @@ local function maxG(a, b)
     return a, b, state
 end
 
+---向0取整函数
+---nmd,为什么lua没有向0取整函数啊.jpg
 local function spint(num)
     if num >= 0 then
         return math.floor(num)
@@ -191,6 +193,7 @@ local function DoRectMapping(a, b, rot, blockx, blocky)
     end
 end
 
+---迭代对象组函数,map用
 local function ItrateGroups(groups)
     for k, v in ipairs(groups) do
         for _, obj in ObjList(v) do
@@ -205,6 +208,7 @@ local function ItrateGroups(groups)
     end
 end
 
+---递推扩散函数
 local function spread(x, y, t, num)
     num = num + 1
     t[x+1][y+1], t[x-1][y+1] = map_settings.default * map_settings.divrate^num
@@ -217,6 +221,7 @@ local function spread(x, y, t, num)
     end
 end
 
+---地图块权重向外扩散
 local function SpreadMap()
     local length = spint(map_settings.vision/map_settings.granularity)
     local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map_settings.granularity)
@@ -295,7 +300,7 @@ end
 
 
 
--------杂项-------
+-------杂项&&部分操作函数-------
 
 ---移动函数,传入对应tag以进行对应的移动操作  
 ---0~17遵循上述坐标&&移动方式约定,-1表不移动
@@ -359,6 +364,8 @@ function AI.Main()
         --]]
         --AI.Move(tag)
 end
+-------杂项等结束-------
 
+--初始化一些默认配置
 AI.SetMapParameter(1, 200, -200, -180, 180, 16)
 AI.SetMapProperty(3, 0.05, 5)
