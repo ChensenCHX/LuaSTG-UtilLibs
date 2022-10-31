@@ -14,7 +14,8 @@ Chensen_AI = AI
 --]]
 
 -------地图段-------
-local inf = 1e20
+
+local inf = 1e15
 local map_settings = {}
 local map_info = {}
 
@@ -22,14 +23,14 @@ local mt_mapI = {
     __index =
     function(t, k)
         if k*map_settings.granularity >= map_settings.down and k*map_settings.granularity <= map_settings.up then
-            t[k] = 0
+            rawset(t, k, 0)
         else
-            t[k] = inf
+            rawset(t, k, inf)
         end
         if t.x*map_settings.granularity >= map_settings.left and t.x*map_settings.granularity <= map_settings.right then
-            t[k] = 0
+            rawset(t, k, 0)
         else
-            t[k] = inf
+            rawset(t, k, inf)
         end
         return 0
     end
@@ -37,8 +38,8 @@ local mt_mapI = {
 local mt_mapO = {
     __index = 
     function(t, k)
-        t[k] = setmetatable({}, mt_mapI)
-        t[k].x = k
+        rawset(t, k, setmetatable({}, mt_mapI))
+        rawset(t[k], 'x', k)
         return t[k]
     end
 }
@@ -80,9 +81,6 @@ function AI.SetMapProperty(r, div, default)
     map_settings.default = default
 end
 
-AI.SetMapParameter(2, 200, -200, -180, 180, 64)
-AI.SetMapProperty(3, 0.05, 5)
-
 ---取椭圆长轴及焦点方向 返回值0,1,2代表前长轴,后长轴,正圆  
 ---取矩形长轴 返回值意义类似椭圆模式
 local function maxG(a, b)
@@ -122,7 +120,7 @@ local function DoEllipticMapping(a, b, rot, blockx, blocky)
         local r2 = a^2
         for i = blockx - int_a, blockx + int_a do
             for j = blocky - int_a, blocky + int_a do
-                if r2 >= i^2 + j^2 then map[i][j] = inf end 
+                if r2 >= (i-blockx)^2 + (j-blocky)^2 then map[i][j] = inf end 
             end
         end
     else
@@ -221,7 +219,7 @@ end
 
 local function SpreadMap()
     local length = spint(map_settings.vision/map_settings.granularity)
-    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map.granularity)
+    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map_settings.granularity)
     for i = x-length, x+length do
         for j = y-length, y+length do
             if map[i][j] >= inf then
@@ -248,10 +246,10 @@ end
 ---@return table 对应数字key 0~8低速区 9~17高速区 04与13不做移动; value为权重 权重最大者为目标方向
 function AI.PreAlanystMap(pow)
     local length = spint(map_settings.vision/map_settings.granularity)
-    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map.granularity)
+    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map_settings.granularity)
     local hs, ls = math.floor(player.hspeed/map_settings.granularity), math.floor(player.lspeed/map_settings.granularity)
-    if 2*hs > length then hs=0.5*length end
-    if 2*ls > length then ls=0.5*length end
+    if 2*hs > length then hs=math.floor(0.5*length) end
+    if 2*ls > length then ls=math.floor(0.5*length) end
     local anstable = {}
     for i = 0, 17 do anstable[i] = 0 end
     
@@ -262,7 +260,7 @@ function AI.PreAlanystMap(pow)
             local lstiter = -4
             for hx = x + (xx-1)*hs, x + (xx+1)*hs do
                 local lstiter2 = -4
-                for hy = y + (yy+1)*hs, y + (yy-1)*hs do
+                for hy = y + (yy+1)*hs, y + (yy-1)*hs, -1 do
                     anstable[iter] = anstable[iter] + map[hx][hy] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
                     lstiter2 = lstiter2 + 1
                 end
@@ -271,7 +269,7 @@ function AI.PreAlanystMap(pow)
             lstiter = -4
             for lx = x + (xx-1)*ls, x + (xx+1)*ls do
                 local lstiter2 = -4
-                for ly = y + (yy+1)*ls, y + (yy-1)*ls do
+                for ly = y + (yy+1)*ls, y + (yy-1)*ls, -1 do
                     anstable[iter+9] = anstable[iter+9] + map[lx][ly] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
                     lstiter2 = lstiter2 + 1
                 end
@@ -287,11 +285,22 @@ end
 
 -------地图段结束-------
 
+
+
 -------向量段-------
+
 function AI.PreAlanystVector()
 end
+-------向量段结束-------
 
-function AI.trytry(tag)
+
+
+-------杂项-------
+
+---移动函数,传入对应tag以进行对应的移动操作  
+---0~17遵循上述坐标&&移动方式约定,-1表不移动
+function AI.Move(tag)
+    if tag == -1 then return end
     local p = player
     p.__slow_flag, p.__up_flag, p.__down_flag, p.__left_flag, p.__right_flag = false, false, false, false, false
     if tag > 8 then
@@ -319,15 +328,37 @@ function AI.trytry(tag)
     end
 end
 
+---一个log函数,打印出地图块权重值
+local function logMap()
+    local length = spint(map_settings.vision/map_settings.granularity)
+    local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map_settings.granularity)
+    Print("start log mapblock @", player.timer)
+    for i = y + length, y - length, -1 do
+        local t = {}
+        for j = x - length, x + length do
+            table.insert(t, map[j][i])
+        end
+        Print(unpack(t))
+    end
+end
+
+---主函数  
+---操作流程:刷新map, 分析map权重, 分析向量权重, (插入人工引导权重) 后加权决定方向并输出动作
 function AI.Main()
-    if KeyIsDown"special" then
         AI.RefreshMap()
         local powlst = AI.PreAlanystMap(0.95)
         AI.PreAlanystVector()
-        local tag, tmppow = 0, inf
+        local tag, tmppow, tmpflag = 0, inf, true
+        
+        logMap()
+        --[[
         for i = 0, 17 do
             if powlst[i] < tmppow then tmppow = powlst[i] tag = i end
+            if powlst[i] ~= 0 then tmpflag = false end
         end
-        AI.trytry(tag)
-    end
+        --]]
+        --AI.Move(tag)
 end
+
+AI.SetMapParameter(1, 200, -200, -180, 180, 16)
+AI.SetMapProperty(3, 0.05, 5)
