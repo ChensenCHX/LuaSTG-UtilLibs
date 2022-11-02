@@ -24,17 +24,13 @@ local map_info = {}
 local mt_mapI = {
     __index =
     function(t, k)
-        if k*map_settings.granularity >= map_settings.down and k*map_settings.granularity <= map_settings.up then
+        if k*map_settings.granularity >= map_settings.down and k*map_settings.granularity <= map_settings.up 
+        and t.x*map_settings.granularity >= map_settings.left and t.x*map_settings.granularity <= map_settings.right then
             rawset(t, k, 0)
         else
             rawset(t, k, inf_bound)
         end
-        if t.x*map_settings.granularity >= map_settings.left and t.x*map_settings.granularity <= map_settings.right then
-            rawset(t, k, 0)
-        else
-            rawset(t, k, inf_bound)
-        end
-        return 0
+        return t[k]
     end
 }
 local mt_mapO = {
@@ -199,11 +195,13 @@ end
 local function ItrateGroups(groups)
     for k, v in ipairs(groups) do
         for _, obj in ObjList(v) do
-            if not(obj.node or obj.hide) and obj.colli and Dist(obj, player) <= map_settings.vision then
-                if obj.rect then
-                    DoRectMapping(obj.a, obj.b, obj.rot, obj.x, obj.y)
-                else
-                    DoEllipticMapping(obj.a, obj.b, obj.rot, obj.x, obj.y)
+            if IsValid(obj) then
+                if not(obj.node or obj.hide) and obj.colli and Dist(obj, player) <= map_settings.vision then
+                    if obj.rect then
+                        DoRectMapping(obj.a, obj.b, obj.rot, obj.x, obj.y)
+                    else
+                        DoEllipticMapping(obj.a, obj.b, obj.rot, obj.x, obj.y)
+                    end
                 end
             end
         end
@@ -251,25 +249,29 @@ end
 ---03 04 05    12 13 14  
 ---06 07 08    15 16 17  
 ---@param pow number 偏移权重底数
+---@param negativepow number 反方向负权乘数
 ---@return table 对应数字key 0~8低速区 9~17高速区 04与13不做移动; value为权重 权重最大者为目标方向
-function AI.PreAlanystMap(pow)
+function AI.PreAlanystMap(pow, negativepow)
     local length = spint(map_settings.vision/map_settings.granularity)
     local x, y = math.floor(player.x/map_settings.granularity), math.floor(player.y/map_settings.granularity)
     local hs, ls = math.floor(player.hspeed/map_settings.granularity), math.floor(player.lspeed/map_settings.granularity)
+    local al, bl = math.floor(player.A/map_settings.granularity), math.floor(player.B/map_settings.granularity)
     if 2*hs > length then hs=math.floor(0.5*length) end
     if 2*ls > length then ls=math.floor(0.5*length) end
     local anstable = {}
+    anstable.valid = {}
     for i = 0, 17 do anstable[i] = 0 end
     
     local iter = 0
     for xx = -1, 1 do
         for yy = 1, -1, -1 do
-
+            --以某种奇怪的方式对地图块加权 注[1]
             local lstiter = -4
             for hx = x + (xx-1)*hs, x + (xx+1)*hs do
                 local lstiter2 = -4
                 for hy = y + (yy+1)*hs, y + (yy-1)*hs, -1 do
-                    anstable[iter] = anstable[iter] + map[hx][hy] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
+                    anstable[iter+9] = anstable[iter+9] + map[hx][hy] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
+                    anstable[8-iter+9] = anstable[8-iter+9] + map[hx][hy] * (pow^(math.abs(lstiter)+math.abs(lstiter2))) * negativepow
                     lstiter2 = lstiter2 + 1
                 end
                 lstiter = lstiter + 1
@@ -278,18 +280,44 @@ function AI.PreAlanystMap(pow)
             for lx = x + (xx-1)*ls, x + (xx+1)*ls do
                 local lstiter2 = -4
                 for ly = y + (yy+1)*ls, y + (yy-1)*ls, -1 do
-                    anstable[iter+9] = anstable[iter+9] + map[lx][ly] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
+                    anstable[iter] = anstable[iter] + map[lx][ly] * (pow^(math.abs(lstiter)+math.abs(lstiter2)))
+                    anstable[8-iter] = anstable[8-iter] + map[lx][ly] * (pow^(math.abs(lstiter)+math.abs(lstiter2))) * negativepow
                     lstiter2 = lstiter2 + 1
                 end
                 lstiter = lstiter + 1
+            end
+            --检测对应点位是否为必死区域并记录,记录于anstable.valid表内,为true则该区域内至少一格的权重>=inf
+            for hpx = x + xx*hs - al, x + xx*hs + al do
+                for hpy = y + yy*hs - bl, y + yy*hs + bl do
+                    if map[hpx][hpy] >= inf then
+                        anstable.valid[iter+9] = true
+                    end
+                end
+            end
+            for lpx = x + xx*ls - al, x + xx*ls + al do
+                for lpy = y + yy*ls - bl, y + yy*ls + bl do
+                    if map[lpx][lpy] >= inf then
+                        anstable.valid[iter] = true
+                    end
+                end
             end
 
             iter = iter + 1
         end
     end
+    --加权总和除以块数得最终权重
+    for i = 9, 17 do
+        anstable[i] = anstable[i]/ ((2*hs+1)^2)
+    end
+    for i = 0, 8 do
+        anstable[i] = anstable[i]/ ((2*ls+1)^2)
+    end
 
     return anstable
 end
+
+--注[1] 对于每个块的权重,这次的加权求和里乘的权为pow^(x距离+y距离), 采用指数衰减
+--同时,给该方向对应的反方向加一个负的权(权越小越安全)
 
 -------地图段结束-------
 
@@ -310,10 +338,10 @@ end
 function AI.Move(tag)
     if tag == -1 then return end
     local p = player
-    p.__slow_flag, p.__up_flag, p.__down_flag, p.__left_flag, p.__right_flag = false, false, false, false, false
+    p.__slow_flag, p.__up_flag, p.__down_flag, p.__left_flag, p.__right_flag = true, false, false, false, false
     if tag > 8 then
         tag = tag - 9
-        p.__slow_flag = true
+        p.__slow_flag = false
     end
 
     if tag == 4 then return end
@@ -353,23 +381,32 @@ end
 ---主函数  
 ---操作流程:刷新map, 分析map权重, 分析向量权重, (插入人工引导权重) 后加权决定方向并输出动作
 function AI.Main()
+    if KeyIsDown("special") then
+        Print('Go!!')
         AI.RefreshMap()
-        local powlst = AI.PreAlanystMap(0.95)
+        local powlst = AI.PreAlanystMap(0.95, 1e-2)
         AI.PreAlanystVector()
         local tag, tmppow, tmpflag = 0, inf, true
         
         logMap()
 
-        --[[
+        --
+        for i = 0, 17 do if powlst[i] ~= 0 then tmpflag = false end end
         for i = 0, 17 do
-            if powlst[i] < tmppow then tmppow = powlst[i] tag = i end
-            if powlst[i] ~= 0 then tmpflag = false end
+            if powlst.valid[i] then powlst[i] = powlst[i] + inf end
+            if powlst[i] <= tmppow then tmppow = powlst[i] tag = i end
         end
+        Print(tag)
+        if tmpflag then tag = 4 end
+        Print(tag)
+        Print(unpack(powlst))
         --]]
-        --AI.Move(tag)
+        AI.Move(tag)
+
+    end
 end
 -------杂项等结束-------
 
 --初始化一些默认配置
-AI.SetMapParameter(1, 200, -200, -180, 180, 16)
-AI.SetMapProperty(3, 0.85, 5)
+AI.SetMapParameter(1, 200, -200, -180, 180, 32)
+AI.SetMapProperty(1, 0.85, 5)
