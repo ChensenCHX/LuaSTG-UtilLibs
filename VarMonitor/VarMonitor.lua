@@ -68,6 +68,7 @@ local function TableCreate(var)
         }
         mt = DeepCopy(mt)
         mt.items, mt.__index, mt.__newindex = items, TableMt.__index, TableMt.__newindex
+        setmetatable(var, nil)
         var = setmetatable({}, mt)
     else
         mt = DeepCopy(TableMt)
@@ -130,3 +131,9 @@ end
 function lib.defaultWrite(t, k, v)
     getmetatable(t).items.target[k] = v
 end
+
+---编写写入控制函数与读取监控函数须知
+--[[
+    读取监控函数的参数应为t, k  如需访问当前的真实值请访问getmetatable(t).items.target[k]
+    写入监控函数的参数应为t, k, v  如需访问/赋值当前的真实值请访问/赋值getmetatable(t).items.target[k]
+--]]
