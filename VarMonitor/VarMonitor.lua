@@ -84,12 +84,11 @@ end
 
 -------向外提供的函数们
 
----创建监控 以var = lib.Create(var, mode)形式使用  
----mode为字符串, table表示表
-function lib.CreateMonitor(var, mode, ...)
-    if mode == "table" then return TableCreate(var)
-    elseif mode == "var" then return VarCreate(var)
-    else error("No such mode!") end
+---创建监控 以var = lib.Create(var)形式使用  
+---仅支持对table使用
+function lib.CreateMonitor(var)
+    if type(var) == "table" then return TableCreate(var)
+    else error("Illegal type.") end
 end
 
 ---插入事件函数  
