@@ -24,13 +24,14 @@ local map_info = {}
 local mt_mapI = {
     __index =
     function(t, k)
-        if k*map_settings.granularity >= map_settings.down and k*map_settings.granularity <= map_settings.up 
+        if k*map_settings.granularity >= map_settings.down and k*map_settings.granularity <= map_settings.up
         and t.x*map_settings.granularity >= map_settings.left and t.x*map_settings.granularity <= map_settings.right then
             rawset(t, k, 0)
+            return 0
         else
             rawset(t, k, inf_bound)
+            return inf_bound
         end
-        return t[k]
     end
 }
 local mt_mapO = {
@@ -408,5 +409,5 @@ end
 -------杂项等结束-------
 
 --初始化一些默认配置
-AI.SetMapParameter(1, 200, -200, -180, 180, 32)
+AI.SetMapParameter(1, 80, -80, -180, 180, 32)
 AI.SetMapProperty(1, 0.85, 5)
