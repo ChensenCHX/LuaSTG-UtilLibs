@@ -14,7 +14,7 @@ VarMonitor = lib
 ---针对table类型的元表  
 ---谔谔,一坨魔幻操作
 local TableMt = {
-    items = {},
+    items = {Read = {}, Write = {}},
     __index = function(t, k)
         if getmetatable(t).items.Read[0] then
             getmetatable(t).items.Read[0][2](getmetatable(t).items.target, k)
@@ -88,7 +88,7 @@ end
 function lib.CreateMonitor(var, mode, ...)
     if mode == "table" then return TableCreate(var)
     elseif mode == "var" then return VarCreate(var)
-    else print("No such mode!") end
+    else error("No such mode!") end
 end
 
 ---插入事件函数  
@@ -101,7 +101,7 @@ function lib.InsertEvent(target, mode, info)
     elseif mode == "none" then
         table.insert(getmetatable(target).items[info.type], {info.name, info.func})
     else
-        Print("Illegal mode.")
+        error("Illegal mode.")
     end
 end
 
@@ -121,6 +121,12 @@ function lib.DeleteEvent(target, mode, info)
     elseif mode == "none" then
         table.remove(getmetatable(target).items[info.type])
     else
-        Print("Illegal mode.")
+        error("Illegal mode.")
     end
+end
+
+---默认的写入表函数  
+---建议直接不假思索插到监控Write项第一位
+function lib.defaultWrite(t, k, v)
+    getmetatable(t).items.target[k] = v
 end
