@@ -158,6 +158,20 @@ function lib.CreateDefaultMonitor(var, ctrl)
     return var
 end
 
+---绕过监控表于原始表中读取值
+---@param t table 监控表
+---@param k any 对应键值
+function lib.Rawget(t, k)
+    return getmetatable(t).items.target[k]
+end
+
+---绕过监控表于原始表中写入值
+---@param t table 监控表
+---@param k any 对应键值
+---@param v any 待写入值
+function lib.Rawset(t, k, v)
+    getmetatable(t).items.target[k] = v
+end
 ---编写写入控制函数与读取监控函数须知
 --[[
     读取监控函数的参数应为t, k      t即为当前的真实表 k为待写入的键值
