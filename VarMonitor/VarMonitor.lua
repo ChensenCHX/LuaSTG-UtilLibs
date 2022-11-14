@@ -18,13 +18,19 @@ if not Print then Print = print end
 local TableMt = {
     items = {Read = {}, Write = {}},
     __index = function(t, k)
+        local retv, ctrl
+        ctrl = getmetatable(t).items.Ctrl
         if getmetatable(t).items.Read[0] then
-            getmetatable(t).items.Read[0][2](getmetatable(t).items.target, k)
+            retv = getmetatable(t).items.Read[0][2](getmetatable(t).items.target, k)
+        else
+            ctrl = false
         end
+
         for _, v in ipairs(getmetatable(t).items.Read) do
             v[2](getmetatable(t).items.target, k)
         end
-        return getmetatable(t).items.target[k]
+
+        if ctrl then return retv else return getmetatable(t).items.target[k] end
     end,
     __newindex = function(t, k, value)
         if getmetatable(t).items.Read[0] then
@@ -60,10 +66,13 @@ end
 
 ---创建监控空表  
 ---绑上特制元表以提供各种神秘操作
-local function TableCreate(var)
+---@param var table 目标表
+---@param ctrl boolean 控制变量 若为true则返回值为表的原元表的返回值
+local function TableCreate(var, ctrl)
     local mt = getmetatable(var)
     if mt then
         local items = {
+            Ctrl = ctrl,
             target = var,
             Read = {[0]={'__origin', mt.__index}},
             Write = {[0]={'__origin', mt.__newindex}}
@@ -75,6 +84,7 @@ local function TableCreate(var)
     else
         mt = DeepCopy(TableMt)
         mt.items.target = var
+        mt.items.Ctrl = ctrl
         var = setmetatable({}, mt)
     end
     return var
@@ -82,10 +92,12 @@ end
 
 -------向外提供的函数们-------
 
----创建监控 以var = lib.Create(var)形式使用  
+---创建监控 以var = lib.Create(var, ctrl)形式使用  
 ---仅支持对table使用
-function lib.CreateMonitor(var)
-    if type(var) == "table" then return TableCreate(var)
+---@param var table 目标表
+---@param ctrl boolean 控制变量 若为true则返回值为表的原元表的返回值 如不存在原__index方法则仍返回表真实值
+function lib.CreateMonitor(var, ctrl)
+    if type(var) == "table" then return TableCreate(var, ctrl)
     else error("Illegal type.") end
 end
 
@@ -137,8 +149,10 @@ function lib.defaultRead(t, k)
 end
 
 ---直接对一个表创建一个搭载默认监视函数的监视器  
-function lib.CreateDefaultMonitor(var)
-    var = lib.CreateMonitor(var)
+---@param var table 目标表
+---@param ctrl boolean 控制变量 若为true则返回值为表的原元表的返回值 如不存在原__index方法则仍返回表真实值
+function lib.CreateDefaultMonitor(var, ctrl)
+    var = lib.CreateMonitor(var, ctrl)
     lib.InsertEvent(var, "none", {name = "default", type = "Read", func = lib.defaultRead})
     lib.InsertEvent(var, "none", {name = "default", type = "Write", func = lib.defaultWrite})
     return var
