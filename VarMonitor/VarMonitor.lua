@@ -78,11 +78,7 @@ local function TableCreate(var)
     return var
 end
 
-local function VarCreate()
-    -- body
-end
-
--------向外提供的函数们
+-------向外提供的函数们-------
 
 ---创建监控 以var = lib.Create(var)形式使用  
 ---仅支持对table使用
@@ -128,11 +124,26 @@ end
 ---默认的写入表函数  
 ---建议直接不假思索插到监控Write项第一位
 function lib.defaultWrite(t, k, v)
-    getmetatable(t).items.target[k] = v
+    t[k] = v
+    Print("writing",t , "with key", k, "with value", v)
+end
+
+---默认的读取表函数  
+---只是在读值的时候将表,键,值打印出来
+function lib.defaultRead(t, k)
+    Print("calling",t , "with key", k, "got", t[k])
+end
+
+---直接对一个表创建一个搭载默认监视函数的监视器  
+function lib.CreateDefaultMonitor(var)
+    var = lib.CreateMonitor(var)
+    lib.InsertEvent(var, "none", {name = "default", type = "Read", func = lib.defaultRead})
+    lib.InsertEvent(var, "none", {name = "default", type = "Write", func = lib.defaultWrite})
+    return var
 end
 
 ---编写写入控制函数与读取监控函数须知
 --[[
-    读取监控函数的参数应为t, k  如需访问当前的真实值请访问getmetatable(t).items.target[k]
-    写入监控函数的参数应为t, k, v  如需访问/赋值当前的真实值请访问/赋值getmetatable(t).items.target[k]
+    读取监控函数的参数应为t, k      t即为当前的真实表 k为待写入的键值
+    写入监控函数的参数应为t, k, v   t即为当前的真实表 k为待写入的键值 v为待写入的值
 --]]
