@@ -409,5 +409,5 @@ end
 -------杂项等结束-------
 
 --初始化一些默认配置
-AI.SetMapParameter(1, 80, -80, -180, 180, 32)
-AI.SetMapProperty(1, 0.85, 5)
+AI.SetMapParameter(1, 180, -180, -180, 180, 32)
+AI.SetMapProperty(3, 0.85, 5)
