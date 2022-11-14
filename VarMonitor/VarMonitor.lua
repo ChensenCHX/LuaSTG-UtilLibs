@@ -1,6 +1,8 @@
 local lib = {}
 VarMonitor = lib
 
+if not Print then Print = print end
+
 -------变量监视器 by CHX-------
 
 ---元表类型与结构说明
