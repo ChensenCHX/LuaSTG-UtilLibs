@@ -11,33 +11,36 @@ if not Print then Print = print end
 ---items.Read存放读事件函数,其中元素的结构为{name:string, func:function}
 ---items.Write存放写事件函数,其中元素的结构为{name:string, func:function}
 
+---秘密key 有效杜绝key撞车的可能性
+local items = {}
+
 -------功能函数们-------
 
 ---针对table类型的元表  
 ---谔谔,一坨魔幻操作
 local TableMt = {
-    items = {Read = {}, Write = {}},
+    [items] = {Read = {}, Write = {}},
     __index = function(t, k)
         local retv, ctrl
-        ctrl = getmetatable(t).items.Ctrl
-        if getmetatable(t).items.Read[0] then
-            retv = getmetatable(t).items.Read[0][2](getmetatable(t).items.target, k)
+        ctrl = getmetatable(t)[items].Ctrl
+        if getmetatable(t)[items].Read[0] then
+            retv = getmetatable(t)[items].Read[0][2](getmetatable(t)[items].target, k)
         else
             ctrl = false
         end
 
-        for _, v in ipairs(getmetatable(t).items.Read) do
-            v[2](getmetatable(t).items.target, k)
+        for _, v in ipairs(getmetatable(t)[items].Read) do
+            v[2](getmetatable(t)[items].target, k)
         end
 
-        if ctrl then return retv else return getmetatable(t).items.target[k] end
+        if ctrl then return retv else return getmetatable(t)[items].target[k] end
     end,
     __newindex = function(t, k, value)
-        if getmetatable(t).items.Read[0] then
-            getmetatable(t).items.Read[0][2](getmetatable(t).items.target, k, value)
+        if getmetatable(t)[items].Read[0] then
+            getmetatable(t)[items].Read[0][2](getmetatable(t)[items].target, k, value)
         end
-        for _, v in ipairs(getmetatable(t).items.Write) do
-            v[2](getmetatable(t).items.target, k, value)
+        for _, v in ipairs(getmetatable(t)[items].Write) do
+            v[2](getmetatable(t)[items].target, k, value)
         end
     end
 }
@@ -71,20 +74,21 @@ end
 local function TableCreate(var, ctrl)
     local mt = getmetatable(var)
     if mt then
-        local items = {
+        local _items = {
             Ctrl = ctrl,
             target = var,
             Read = {[0]={'__origin', mt.__index}},
             Write = {[0]={'__origin', mt.__newindex}}
         }
         mt = DeepCopy(mt)
-        mt.items, mt.__index, mt.__newindex = items, TableMt.__index, TableMt.__newindex
+        mt[items], mt.__index, mt.__newindex = _items, TableMt.__index, TableMt.__newindex
         setmetatable(var, nil)
         var = setmetatable({}, mt)
     else
         mt = DeepCopy(TableMt)
-        mt.items.target = var
-        mt.items.Ctrl = ctrl
+        mt[items] = TableMt[items] --deepcopy的时候会把keytable也copy成了新的所以必须这样 谔谔
+        mt[items].target = var
+        mt[items].Ctrl = ctrl
         var = setmetatable({}, mt)
     end
     return var
@@ -107,9 +111,9 @@ end
 ---info.type可为"Read", "Write"
 function lib.InsertEvent(target, mode, info)
     if mode == "pos" then
-        table.insert(getmetatable(target).items[info.type], info.pos, {info.name, info.func})
+        table.insert(getmetatable(target)[items][info.type], info.pos, {info.name, info.func})
     elseif mode == "none" then
-        table.insert(getmetatable(target).items[info.type], {info.name, info.func})
+        table.insert(getmetatable(target)[items][info.type], {info.name, info.func})
     else
         error("Illegal mode.")
     end
@@ -121,15 +125,15 @@ end
 ---info.type可为"Read", "Write"
 function lib.DeleteEvent(target, mode, info)
     if mode == "pos" then
-        table.remove(getmetatable(target).items[info.type], info.pos)
+        table.remove(getmetatable(target)[items][info.type], info.pos)
     elseif mode == "name" then
-        for _, v in ipairs(getmetatable(target).items[info.type]) do
+        for _, v in ipairs(getmetatable(target)[items][info.type]) do
             if v[1] == info.name then
-                table.remove(getmetatable(target).items[info.type], _)
+                table.remove(getmetatable(target)[items][info.type], _)
             end
         end
     elseif mode == "none" then
-        table.remove(getmetatable(target).items[info.type])
+        table.remove(getmetatable(target)[items][info.type])
     else
         error("Illegal mode.")
     end
@@ -162,7 +166,7 @@ end
 ---@param t table 监控表
 ---@param k any 对应键值
 function lib.Rawget(t, k)
-    return getmetatable(t).items.target[k]
+    return getmetatable(t)[items].target[k]
 end
 
 ---绕过监控表于原始表中写入值
@@ -170,7 +174,7 @@ end
 ---@param k any 对应键值
 ---@param v any 待写入值
 function lib.Rawset(t, k, v)
-    getmetatable(t).items.target[k] = v
+    getmetatable(t)[items].target[k] = v
 end
 ---编写写入控制函数与读取监控函数须知
 --[[
