@@ -99,7 +99,7 @@ local function spint(num)
     if num >= 0 then
         return math.floor(num)
     else
-        return math.celi(num)
+        return math.ceil(num)
     end
 end
 
