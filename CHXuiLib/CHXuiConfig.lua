@@ -105,7 +105,7 @@ local UIScheme = {
         self.score_tmp = score_tmp
     end},
 
-    {"UI", "drawInfo1", function(self)
+    {"UI", "drawInfo", function(self)
         if not stage.current_stage.name then return end
         local w = lstg.world
         local RenderImgList = {

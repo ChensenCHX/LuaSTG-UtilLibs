@@ -201,6 +201,13 @@ do
     end
     
     function ui.DrawMenuBG()
+        SetViewMode "ui"
+        Render("menu_bg", 320, 240)
+        SetFontState("menu", "", Color(0xFFFFFFFF))
+        RenderText("menu",
+            string.format("%.1ffps", GetFPS()),
+            636, 1, 0.25, "right", "bottom")
+        SetViewMode "world"
     end
     
     function ui.DrawFrame()
