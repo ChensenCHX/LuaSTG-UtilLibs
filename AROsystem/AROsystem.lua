@@ -19,12 +19,15 @@ AROsys = lib
 
 local infos = { Fstate = 'load' }
 local items = {
-    'LoadTexture',
-    'LoadImage', 'CopyImage', 'LoadImageFromFile', 'LoadImageGroup', 'LoadImageGroupFromFile',
+    'LoadTexture', '_LoadImageFromFile', '_LoadImageGroupFromFile',
+    'LoadImageFromFile', 'LoadImageGroup', 'LoadImageGroupFromFile',
     'LoadAnimation', 'LoadAniFromFile',
+    'LoadImage',
     'LoadFont', 'LoadTTF',
     'LoadPS', 'LoadFX',
     'LoadSound', 'LoadMusic', 'LoadLaserTexture',
+
+    'CopyImage',
 
     'SetImageState', 'SetImageCenter',
     'SetAnimationCenter', 'SetAnimationState',
@@ -77,11 +80,12 @@ function lib.SetExpectFrames(frames)
             total = total + #infos[k].varlist
         end
     end
+    Print('[ARO INFO]:分析总数:', total)
     local avg, tof = total / frames, 1
     while true do
         if avg % 1 >= 0.1 and avg % 1 <= 0.9 then
             tof = tof + 1
-            avg = avg * (tof - 1) / tof
+            avg = total*tof / frames
         else
             break
         end
@@ -138,16 +142,16 @@ local function LoadResorce(times)
             if times > tmp then
                 times = times - tmp
                 for i = 1, tmp do
+                    if #infos[v].varlist == 0 then break end
                     _G[v](unpack(table.remove(infos[v].varlist, 1)))
                     Print '[ARO INFO]:成功执行加载/设置操作,加载信息见上,设置信息缺省'
                 end
-                return
             else
-                for i = 1, times do
+                for i = 1, tmp do
+                    if #infos[v].varlist == 0 then break end
                     _G[v](unpack(table.remove(infos[v].varlist, 1)))
                     Print '[ARO INFO]:成功执行加载/设置操作,加载信息见上,设置信息缺省'
                 end
-                return
             end
         end
     end
