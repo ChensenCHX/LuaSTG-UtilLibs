@@ -373,7 +373,7 @@ local function logMap()
     for i = y + length, y - length, -1 do
         local t = {}
         for j = x - length, x + length do
-            table.insert(t, map[j][i])
+            table.insert(t, map[j][i]-map[j][i]%0.01)
         end
         Print(unpack(t))
     end
@@ -383,7 +383,6 @@ end
 ---操作流程:刷新map, 分析map权重, 分析向量权重, (插入人工引导权重) 后加权决定方向并输出动作
 function AI.Main()
     if KeyIsDown("special") then
-        Print('Go!!')
         AI.RefreshMap()
         local powlst = AI.PreAlanystMap(0.95, 1e-2)
         AI.PreAlanystVector()
