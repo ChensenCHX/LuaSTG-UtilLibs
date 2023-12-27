@@ -234,7 +234,7 @@ end
 
 ---异步对象资源使用
 ---@param target lstg.GameObject 通常来说在目标obj的init里填self即可
----@param targetVarName any 目标key 比如说修改self.img就填'img'
+---@param targetVarName any 目标key 比如说修改self.img就填'img' 注意仅支持直接在self下的一级变量
 function lib.ResObj:AsyncUse(target, targetVarName)
     target[targetVarName] = self.name
     task.New(target, function()
@@ -284,6 +284,7 @@ end
 ---@param type 'Image'|'Animation'|'ImageGroup'|'Texture' 派生类型
 ---@param name string|function 派生名称|派生名迭代器 为ImageGroup时请传入派生名迭代器
 ---@param ... any 对应函数的其余参数(除name, texname的其他参数)
+---@return table|ResObj ResObjs 如派生ImageGroup则返回的是承装图片对象序列的table 
 function lib.Texture:Derive(async, type, name, ...)
     if type == 'Image' then
         local res = lib.Image():Load(async, name, self.name, ...)
@@ -292,7 +293,20 @@ function lib.Texture:Derive(async, type, name, ...)
     end
 
     if type == 'ImageGroup' then
-        --TODO: 手写一下根据迭代器加载图片组
+        local pT = {...}
+        local resT = {}
+        for i = 0, pT[5]*pT[6]-1 do
+            table.insert(resT,
+                lib.Image():Load(async,
+                    name(), self.name,
+                    pT[1] + pT[3]*(i % pT[5]),
+                    pT[2] + pT[4]*(int(i / pT[5])),
+                    pT[3], pT[4],
+                    pT[7] or 0, pT[8] or 0, pT[9] or false)
+            )
+            table.insert(self.derive, resT[i+1])
+        end
+        return resT
     end
 
     if type == 'Animation' then
@@ -301,7 +315,7 @@ function lib.Texture:Derive(async, type, name, ...)
         return res
     end
 
-    lib.ResObj.Derive(self, async)
+    return lib.ResObj.Derive(self, async)
 end
 
 -------
