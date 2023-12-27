@@ -253,8 +253,12 @@ end
 lib.Texture = pClass(lib.ResObj)
 
 function lib.Texture:Load(async, name, ...)
-    
-    
+    if async then
+        asyncQueue.push({'LoadTexture', self.name, blendmode, ...})
+    else
+        lstg.LoadTexture(self.name, blendmode, ...)
+    end
+    return self
 end
 
 lib.Image = pClass(lib.ResObj)
