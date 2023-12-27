@@ -20,7 +20,7 @@ end
 
 ---声明一个plus.Class类
 ---@class pClass plus.Class
----@param base pClass|nil 基类
+---@param base any|pClass|nil 基类
 local function pClass(base)
     local class = { _mbc = {}, super = base }
 
@@ -236,15 +236,26 @@ end
 ---@param target lstg.GameObject 通常来说在目标obj的init里填self即可
 ---@param targetVarName any 目标key 比如说修改self.img就填'img'
 function lib.ResObj:AsyncUse(target, targetVarName)
+    target[targetVarName] = self.name
     task.New(target, function()
         while self.name == nullName do
             task.Wait()
         end
-        target[targetVarName] = self.name
+        while not asyncQueue.empty() do
+            target[targetVarName] = self.name
+            task.Wait()
+        end
     end)
 end
 
 -------一些便用的包装-------
+
+lib.Texture = pClass(lib.ResObj)
+
+function lib.Texture:Load(async, name, ...)
+    
+    
+end
 
 lib.Image = pClass(lib.ResObj)
 
