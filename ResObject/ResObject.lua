@@ -101,7 +101,7 @@ function lib.asyncProcessor:init(speed, patcher, terminate, wait)
             while true do
                 while self.counter < speed do
                     if asyncQueue.empty() then break end
-                    
+
                     local t = asyncQueue.pop()
                     if t[1]:find("Load") then
                         self.counter = self.counter + 1
@@ -163,7 +163,7 @@ function lib.ResObj:Load(async, type, name, ...)
     if self.type == 0 then
         self.type = assert(typeEnum[type], 'Invalid resource type \'', type, '\'')
     else
-        self:ReLoad(type, name, async)
+        self:ReLoad(async, type, name)
         lstg.Print("[ObjectResourceLib][Warning] Attempt to Load a loaded resource ", name, ", automatically using ReLoad method.")
         return self
     end
@@ -212,14 +212,14 @@ end
 function lib.ResObj:Delete(async, recursion)
     if recursion then
         for _, res in ipairs(self.derive) do
-            res:Delete(async)
+            res:Delete(async, recursion)
         end
     else
         self.derive = {}
     end
 
     if async then
-        asyncQueue.push({'RemoveResource' .. type, 'global', self.type, self.name})
+        asyncQueue.push({'RemoveResource', 'global', self.type, self.name})
     else
         lstg.RemoveResource(lstg.CheckRes(self.type, self.name), self.type, self.name)
     end
@@ -252,14 +252,59 @@ end
 
 lib.Texture = pClass(lib.ResObj)
 
+---加载纹理
+---@param async boolean 是否异步加载
+---@param name string 纹理资源名称
+---@param ... any LoadTexture函数的其余参数(除name) 
 function lib.Texture:Load(async, name, ...)
-    if async then
-        asyncQueue.push({'LoadTexture', self.name, blendmode, ...})
-    else
-        lstg.LoadTexture(self.name, blendmode, ...)
-    end
+    lib.ResObj.Load(self, async, 'Texture', name, ...)
+    self.rclass = lib.Texture
     return self
 end
+
+---重加载纹理
+---@param async boolean 是否异步加载
+---@param mode boolean 是否释放原资源的派生资源
+---@param name string 纹理资源名称
+---@param ... any LoadTexture函数的其余参数(除name) 
+function lib.Texture:ReLoad(async, mode, name, ...)
+    if mode then
+        for _, res in ipairs(self.derive) do
+            res:Delete(async, true)
+        end
+        self.derive = {}
+    end
+    lib.ResObj.ReLoad(self, async, 'Texture', name, ...)
+    return self
+end
+
+---从纹理派生纹理相关对象 如果派生ImageGroup则依赖派生名迭代器获取派生名  
+---派生名迭代器应当在每次调用时返回一个名称
+---@param async boolean 是否异步加载
+---@param type 'Image'|'Animation'|'ImageGroup'|'Texture' 派生类型
+---@param name string|function 派生名称|派生名迭代器 为ImageGroup时请传入派生名迭代器
+---@param ... any 对应函数的其余参数(除name, texname的其他参数)
+function lib.Texture:Derive(async, type, name, ...)
+    if type == 'Image' then
+        local res = lib.Image():Load(async, name, self.name, ...)
+        table.insert(self.derive, res)
+        return res
+    end
+
+    if type == 'ImageGroup' then
+        --TODO: 手写一下根据迭代器加载图片组
+    end
+
+    if type == 'Animation' then
+        local res = lib.Animation():Load(async, name, self.name, ...)
+        table.insert(self.derive, res)
+        return res
+    end
+
+    lib.ResObj.Derive(self, async)
+end
+
+-------
 
 lib.Image = pClass(lib.ResObj)
 
@@ -270,8 +315,14 @@ lib.Image = pClass(lib.ResObj)
 function lib.Image:Load(async, name, ...)
     lib.ResObj.Load(self, async, 'Image', name, ...)
     self.rclass = lib.Image
+    return self
 end
-lib.Image.init = lib.Image.Load
+
+function lib.Image:ReLoad(async, name, ...)
+    lib.ResObj.ReLoad(self, async, 'Image', name, ...)
+    return self
+end
+
 
 ---设置图片渲染缩放, 默认为1
 ---@param async any
@@ -305,5 +356,11 @@ function lib.Image:SetCenter(async, x, y)
     end
     return self
 end
+
+-------
+
+lib.Animation = pClass(lib.ResObj)
+---TODO:晚一点再去实现动画类 懒了
+
 
 return lib
