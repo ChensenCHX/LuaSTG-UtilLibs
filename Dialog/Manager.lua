@@ -6,7 +6,23 @@
 --- 例如需要不同颜色，字重，描边的文本等
 --- 将来可以考虑进一步扩展
 
---- 在原有基础上追加叠层式表情控制--TODO
+--- 在原有基础上追加了叠层式表情控制
+--- 详情见character_set表中的注释
+
+--- 配置流程:
+--- 根据需求填写character_set表
+--- 在 loadCommonResources() 函数中添加通用资源加载代码
+--- 在 createTextRenderer() 函数中修改font_file_list表添加字体文件路径
+--- 运行一次, 观察 log 中 Font Collection Detail:\n%s 对应的 %s 信息
+--- 使用相应信息修改 DirectWrite.CreateTextFormat() 的第一个参数
+--- 按需求修改各种 scale (resolution_scale, box_scale)
+--- 到这里配置完成, 编写对应的对话文件即可
+--- 
+--- 注意:
+--- 必须加载dialog:box图片素材作为对话框
+--- 注意, 默认对话框缩放后大小为 384x108, 边缘都保留
+--- 不得占用 dialog:text_canvas 这一RenderTarget
+--- 不得占用 dialog:text 图片素材
 
 local DirectWrite = require("DirectWrite")
 
@@ -17,7 +33,7 @@ local character_set = {
         
         name = {
             root = 文件夹路径,
-            head = "灵梦(自机)",
+            head = 共同前缀名,
             images = {
                 子图文件名1,
                 子图文件名2,
@@ -25,7 +41,17 @@ local character_set = {
                 ...
             },
             
+            -- 可选项
             nametag = 名牌名称,
+            keywordList = {
+                名称 = {
+                    images = {子图名1, 子图名2, ...},   -- 注意!! 这里的多层渲染严格按照表内顺序进行
+                    xoffsets = {子图1的x偏移, 子图2的x偏移, ...},
+                    yoffsets = {子图1的y偏移, 子图2的y偏移, ...}
+                },
+                ...
+            }
+            
 
             -- 立绘横纵缩放
             hscale = hs,
@@ -85,6 +111,8 @@ end
 
 local function loadCommonResources()
     -- 在这里添加需要的资源
+    -- for example:
+    loadSpriteFromFile("dialog:box", "assets/dialog/dialogBox.png")
 end
 
 ---处理DirectWrite并返回渲染器
@@ -264,9 +292,6 @@ local function loadCharacterImages(id)
     for _, v in ipairs(c.images) do
         loadSpriteFromFile("character:" .. v, "assets/character/" .. c.root .. "/" .. v .. ".png")
     end
-    if c.frame then
-        loadSpriteFromFile("character:" .. c.frame, "assets/character/frame/" .. c.frame .. ".png")
-    end
     if c.nametag then
         loadSpriteFromFile("character:" .. c.nametag, "assets/character/nametag/" .. c.nametag .. ".png")
     end
@@ -298,52 +323,6 @@ end
 
 ---@param id string
 ---@param keyword string
----@param x number
----@param y number
----@param hscale number
----@param vscale number
----@param color lstg.Color
-local function drawCharacterHead(id, keyword, x, y, hscale, vscale, color)
-    local cc = character_set[id]
-    local image = findCharacterImage(id, keyword)
-    local w, h = lstg.GetTextureSize(image) -- 纹理和图片精灵同名
-    lstg.RenderTexture(
-        image,
-        "",
-        ---@diagnostic disable: assign-type-mismatch
-        { x + hscale * (-w / 2)     , y + vscale * (h / 2 - 64), 0.5,  0,  64, color },
-        { x + hscale * (-w / 2 + 80), y + vscale * (h / 2)     , 0.5, 80,   0, color },
-        { x + hscale * (-w / 2 + 80), y + vscale * (-h / 2)    , 0.5, 80, 400, color },
-        { x + hscale * (-w / 2)     , y + vscale * (-h / 2)    , 0.5,  0, 400, color }
-        ---@diagnostic enable: assign-type-mismatch
-    )
-    lstg.RenderTexture(
-        image,
-        "",
-        ---@diagnostic disable: assign-type-mismatch
-        { x + hscale * (-w / 2 + 80), y + vscale * ( h / 2), 0.5, 80      ,        0, color },
-        { x + hscale * ( w / 2 - 80), y + vscale * ( h / 2), 0.5, 400 - 80,        0, color },
-        { x + hscale * ( w / 2 - 80), y + vscale * (-h / 2), 0.5, 400 - 80,      400, color },
-        { x + hscale * (-w / 2 + 80), y + vscale * (-h / 2), 0.5, 80      ,      400, color }
-        ---@diagnostic enable: assign-type-mismatch
-    )
-    lstg.RenderTexture(
-        image,
-        "",
-        ---@diagnostic disable: assign-type-mismatch
-        { x + hscale * (w / 2 - 80), y + vscale * (h / 2)      , 0.5, 400 - 80,        0, color },
-        { x + hscale * (w / 2)     , y + vscale * (h / 2)      , 0.5, 400     ,        0, color },
-        { x + hscale * (w / 2)     , y + vscale * (-h / 2 + 64), 0.5, 400     , 400 - 64, color },
-        { x + hscale * (w / 2 - 80), y + vscale * (-h / 2)     , 0.5, 400 - 80,      400, color }
-        ---@diagnostic enable: assign-type-mismatch
-    )
-    local frame = "character:" .. cc.frame
-    lstg.SetImageState(frame, "", color)
-    lstg.Render(frame, x, y, 0, hscale, vscale)
-end
-
----@param id string
----@param keyword string
 ---@param side game.dialog.Side
 ---@param focus_value number
 ---@param alpha number
@@ -364,16 +343,24 @@ local function drawCharacter(id, keyword, side, focus_value, alpha)
     else
         rx = rx + alpha0_offset - alpha_offset
     end
-    local image = findCharacterImage(id, keyword)
+
     local ox, oy = cc.xoffset or 0, cc.yoffset or 0
     local scale = lerp(1, 1.02, focus_value)
     local color = getCharacterColor(focus_value, alpha)
-    if cc.frame then
-        drawCharacterHead(id, keyword, rx + ox, ry + oy, scale * cc.hscale, scale * cc.vscale, color)
+
+    if cc.keywordList then
+        local imageList = cc.keywordList[keyword]
+        for i, image in ipairs(imageList.images) do
+            lstg.SetImageState(image, "", color)
+            local oox, ooy = imageList.xoffsets[i] or 0, imageList.yoffsets[i] or 0
+            lstg.Render(image, rx + ox + oox, ry + oy + ooy, 0, scale * cc.hscale, scale * cc.vscale)
+        end
     else
+        local image = findCharacterImage(id, keyword)
         lstg.SetImageState(image, "", color)
         lstg.Render(image, rx + ox, ry + oy, 0, scale * cc.hscale, scale * cc.vscale)
     end
+
     if character_debug then
         lstg.SetImageState("white", "", lstg.Color(255, 255, 0, 255))
         lstg.Render("white", rx, ry, 0, 1)
