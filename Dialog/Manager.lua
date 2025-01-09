@@ -382,6 +382,7 @@ local Manager = Class(object)
 function Manager:init()
     self.addCharacter = Manager.addCharacter
     self.setCharacterActive = Manager.setCharacterActive
+    self.appendActiveCharacter = Manager.appendActiveCharacter
     self.drawCharacterGroup = Manager.drawCharacterGroup
     self.setText = Manager.setText
     self.fadeIn = Manager.fadeIn
@@ -471,6 +472,19 @@ function Manager:setCharacterActive(id, keyword)
         c.focus = (c.id == id)
         if c.focus and keyword then
             c.keyword = keyword
+        end
+    end
+    return self
+end
+---@param id string
+---@param keyword string
+---@return game.dialog.SceneManager
+---@overload fun(self:game.dialog.SceneManager, id:string)
+function Manager:appendActiveCharacter(id, keyword)
+    for _, c in ipairs(self.characters) do
+        if c.id == id then
+            c.focus = true
+            if keyword then c.keyword = keyword end
         end
     end
     return self
