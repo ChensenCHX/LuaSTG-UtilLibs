@@ -10,6 +10,30 @@ New(_G[lstg.var.player_name])
 之类的代码替换为
 PlayerMixin.createPlayer()
 且应当保证lib.SetMixinSet在创建自机前被正确调用!!
+
+
+当然 你可以写个包装类 比如说
+__PlayerMixinWarpper = Class(object)
+function __PlayerMixinWarpper:init()
+    PlayerMixin.createPlayer()
+    Del(self)
+end
+lstg.var.player_name = "__PlayerMixinWarpper"
+像这样就不需要替换New(_G[lstg.var.player_name])
+只需要保证在选择阶段正确调用lib.SetMixinSet
+
+i.e. 修改title.lua的选择自机段的部分代码为
+menu_items = {}
+    for i, v in ipairs(player_list) do
+        table.insert(menu_items, { player_list[i][1], function()
+            scoredata.player_select = i
+            menu.FlyOut(menu_player_select, 'left')
+            local pos = player_list[i][2]:find('&')
+            if pos == nil then pos = 0 end
+            PlayerMixin.SetMixinSet(player_list[i][2]:sub(1, pos-1), player_list[i][2]:sub(pos+1, -1))
+
+即可正常在lstg默认data中进行proxy
+当然你还应该改debugger.lua scdebugger.lua等处
 --]]
 
 --- 可Mixin的自机必须实现以下条件
