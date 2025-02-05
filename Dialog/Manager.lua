@@ -81,7 +81,7 @@ local function lerp(v1, v2, k)
 end
 
 local function easeInOutQuad(x)
-    return x < 0.5 and 2 * x * x or 1 - math.pow(-2 * x + 2, 2) / 2
+    return x < 0.5 and 2 * x * x or 1 - ((-2 * x + 2) ^ 2) / 2
 end
 
 ---@param v number 当前值
@@ -404,6 +404,7 @@ function Manager:init()
     self.wait = Manager.wait
     self.scope = Manager.scope
     self.showName = Manager.showName
+    self.removeCharacter = Manager.removeCharacter
     self.clearBuffer = Manager.clearBuffer
     self.postText = Manager.postText
     self.getRenderer = Manager.getRenderer
@@ -584,6 +585,43 @@ function Manager:showName(id, t1, t2, t3, wait)
     self.nametag_renderer:enable(id, t1*60, t2*60, t3*60)
     self:wait(t1+t2+t3, wait)
     return self
+end
+function Manager:removeCharacter(id, time, wait)
+    time = time or 0.25
+    time = time * 60
+    local offset = -1
+    local target = nil
+
+    local function f()
+        local alpha = target.alpha
+        for i = 1, time do
+            target.alpha = lerp(alpha, 0, i/time)
+            task.Wait(1)
+        end
+        for index, character in ipairs(self.characters) do
+            if character.id == target.id then
+                table.remove(self.characters, index)
+                break
+            end
+        end
+    end
+    --self.lock = true
+
+    for index, character in ipairs(self.characters) do
+        if character.id == id then
+            offset = index
+            target = character
+            break
+        end
+    end
+
+    if offset == -1 then return end
+
+    if wait then
+        f()
+    else
+        task.New(self, f)
+    end
 end
 ---危险方法 请确保你知道自己在做什么  
 ---清空文字渲染RT
