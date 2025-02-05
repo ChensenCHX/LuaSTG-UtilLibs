@@ -26,6 +26,8 @@
 
 local DirectWrite = require("DirectWrite")
 
+local SCALE_RATIO = 0.15
+
 local character_set = {
     void = {},
     --[[
@@ -63,6 +65,8 @@ local character_set = {
 
             
         }    
+        **注意 必须包含一个名为 [prefix]Idle 的图片
+        **注意 如使用keywordList 必须包含一个名为Idle的项 且此时hscale vscale必须保证为1
     --]]
 }
 
@@ -74,6 +78,10 @@ local character_set = {
 ---@return number
 local function lerp(v1, v2, k)
     return v1 * (1.0 - k) + v2 * k
+end
+
+local function easeInOutQuad(x)
+    return x < 0.5 and 2 * x * x or 1 - math.pow(-2 * x + 2, 2) / 2
 end
 
 ---@param v number 当前值
@@ -107,12 +115,14 @@ local function loadSpriteFromFile(name, path, mipmap)
     lstg.LoadTexture(name, path, mipmap)
     local w, h = lstg.GetTextureSize(name)
     lstg.LoadImage(name, name, 0, 0, w, h)
+    lstg.SetImageScale(name, SCALE_RATIO)
+    lstg.SetImageCenter(name, 0, h)
 end
 
 local function loadCommonResources()
     -- 在这里添加需要的资源
     -- for example:
-    loadSpriteFromFile("dialog:box", "assets/dialog/dialogBox.png")
+    loadSpriteFromFile("dialog:box", "Dialog/Assets/General/dialogBox.png")
 end
 
 ---处理DirectWrite并返回渲染器
@@ -123,7 +133,7 @@ local function createTextRenderer()
     local outline_with = 2
 
     local font_file_list = {
-        "assets/font/LXGWWenKaiScreen.ttf"
+        "Dialog/Assets/General/LXGWWenKaiScreen.ttf"
     }
     local font_collection = DirectWrite.CreateFontCollection(font_file_list)
     lstg.Print(string.format("Font Collection Detail:\n%s", font_collection:GetDebugInformation()))
@@ -290,10 +300,10 @@ local function loadCharacterImages(id)
     local c = character_set[id]
     assert(c, string.format("character id '%s' not found", id))
     for _, v in ipairs(c.images) do
-        loadSpriteFromFile("character:" .. v, "assets/character/" .. c.root .. "/" .. v .. ".png")
+        loadSpriteFromFile("character:" .. v, "Dialog/Assets/" .. c.root .. "/" .. v .. ".png")
     end
     if c.nametag then
-        loadSpriteFromFile("character:" .. c.nametag, "assets/character/nametag/" .. c.nametag .. ".png")
+        loadSpriteFromFile("character:" .. c.nametag, "Dialog/Assets/Nametag/" .. c.nametag .. ".png")
     end
 end
 
@@ -345,17 +355,21 @@ local function drawCharacter(id, keyword, side, focus_value, alpha)
     end
 
     local ox, oy = cc.xoffset or 0, cc.yoffset or 0
-    local scale = lerp(1, 1.02, focus_value)
-    local color = getCharacterColor(focus_value, alpha)
 
     if cc.keywordList then
+        local focus_rate = easeInOutQuad(focus_value)
+        local color = getCharacterColor(focus_rate, alpha)
+        local ofocusx, ofocusy = lerp(0, 18, focus_rate), lerp(0, 6, focus_rate)
         local imageList = cc.keywordList[keyword]
         for i, image in ipairs(imageList.images) do
-            lstg.SetImageState(image, "", color)
+            local imageName = "character:" .. image
+            lstg.SetImageState(imageName, "", color)
             local oox, ooy = imageList.xoffsets[i] or 0, imageList.yoffsets[i] or 0
-            lstg.Render(image, rx + ox + oox, ry + oy + ooy, 0, scale * cc.hscale, scale * cc.vscale)
+            lstg.Render(imageName, rx + ox + oox + ofocusx, ry + oy + ooy + ofocusy, 0, cc.hscale, cc.vscale)
         end
     else
+        local scale = lerp(1, 1.05, focus_value)
+        local color = getCharacterColor(focus_value, alpha)
         local image = findCharacterImage(id, keyword)
         lstg.SetImageState(image, "", color)
         lstg.Render(image, rx + ox, ry + oy, 0, scale * cc.hscale, scale * cc.vscale)
@@ -459,7 +473,7 @@ function Manager:addCharacter(id, side)
     C.side = side
     C.focus = false
     C.focus_value = 0
-    C.keyword = "正常"
+    C.keyword = "Idle"
     C.alpha = 0
     table.insert(self.characters, C)
 end
@@ -545,7 +559,7 @@ function Manager:wait(max_seconds, force)
     local max_frame = max_seconds * 60 -- 这里锁定每秒 60 帧，虽然理论上可以改
     while max_frame > 0 do
         if not self.lock then
-            if not force and (KeyIsPressed("next") or self.skip_mode) then
+            if not force and (KeyIsPressed("shoot") or self.skip_mode) then
                 if self.skip_mode then
                     for _, c in ipairs(self.characters) do
                         if c.focus then
