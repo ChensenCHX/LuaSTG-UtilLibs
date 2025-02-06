@@ -22,11 +22,15 @@
 --- 必须加载dialog:box图片素材作为对话框
 --- 注意, 默认对话框缩放后大小为 384x108, 边缘都保留
 --- 不得占用 dialog:text_canvas 这一RenderTarget
+--- 不得占用 dialog:character_image_canvas 这一RenderTarget
 --- 不得占用 dialog:text 图片素材
+--- 不得占用 dialog:character_image 图片素材
 
 local DirectWrite = require("DirectWrite")
 
 local SCALE_RATIO = 0.15
+local COLOR_0x00000000 = Color(0)
+local COLOR_0xFFFFFFFF = Color(0xFFFFFFFF)
 
 local character_set = {
     void = {},
@@ -119,10 +123,20 @@ local function loadSpriteFromFile(name, path, mipmap)
     lstg.SetImageCenter(name, 0, h)
 end
 
-local function loadCommonResources()
-    -- 在这里添加需要的资源
-    -- for example:
+local function loadBaseResources()
     loadSpriteFromFile("dialog:box", "Dialog/Assets/General/dialogBox.png")
+
+    local w, h = screen.width * screen.scale, screen.height * screen.scale
+    lstg.CreateRenderTarget("dialog:character_image_canvas", w, h)
+    lstg.LoadImage("dialog:character_image", "dialog:character_image_canvas", 0, 0, w, h)
+    lstg.SetImageScale("dialog:character_image", 1/screen.scale)
+    lstg.SetImageCenter("dialog:character_image", 0, h)
+end
+
+local function loadCommonResources()
+    loadBaseResources()
+    -- 在这里添加需要的资源
+    -- for example: 参考loadBaseResources()第一行
 end
 
 ---处理DirectWrite并返回渲染器
@@ -358,15 +372,21 @@ local function drawCharacter(id, keyword, side, focus_value, alpha)
 
     if cc.keywordList then
         local focus_rate = easeInOutQuad(focus_value)
-        local color = getCharacterColor(focus_rate, alpha)
         local ofocusx, ofocusy = lerp(0, 18, focus_rate), lerp(0, 6, focus_rate)
         local imageList = cc.keywordList[keyword]
+
+        lstg.PushRenderTarget("dialog:character_image_canvas")
+        lstg.RenderClear(COLOR_0x00000000)
         for i, image in ipairs(imageList.images) do
             local imageName = "character:" .. image
-            lstg.SetImageState(imageName, "", color)
+            lstg.SetImageState(imageName, "", COLOR_0xFFFFFFFF)
             local oox, ooy = imageList.xoffsets[i] or 0, imageList.yoffsets[i] or 0
             lstg.Render(imageName, rx + ox + oox + ofocusx, ry + oy + ooy + ofocusy, 0, cc.hscale, cc.vscale)
         end
+        lstg.PopRenderTarget() -- "dialog:character_image_canvas"
+
+        lstg.SetImageState("dialog:character_image", "", getCharacterColor(focus_rate, alpha))
+        lstg.Render("dialog:character_image", 0, 0)
     else
         local scale = lerp(1, 1.05, focus_value)
         local color = getCharacterColor(focus_value, alpha)
@@ -430,7 +450,7 @@ function Manager:frame()
     self.skip_mode = KeyIsDown("skip") or (self.skip_mode_timer >= 60)
     for _, c in ipairs(self.characters) do
         c.focus_value = balance(c.focus_value, 1 / 10, c.focus)
-        c.alpha = math.min(c.alpha + 1/ 20, 1)
+        c.alpha = math.min(c.alpha + 1 / 20, 1)
     end
 end
 ---@private
@@ -618,7 +638,9 @@ function Manager:removeCharacter(id, time, wait)
     if offset == -1 then return end
 
     if wait then
+        self.lock = true
         f()
+        self.lock = false
     else
         task.New(self, f)
     end
@@ -626,7 +648,10 @@ end
 ---危险方法 请确保你知道自己在做什么  
 ---清空文字渲染RT
 function Manager:clearBuffer()
-    self.text_renderer:clearBuffer()
+    self:setText("")
+    self.lock = true
+    task.Wait(1)
+    self.lock = false
     return self
 end
 ---危险方法 请确保你知道自己在做什么  
